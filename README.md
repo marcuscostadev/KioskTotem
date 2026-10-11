@@ -2,7 +2,7 @@
 An HTML code where you could call an item to the cart, and go to chekout. The sold Item could be see in a sheet in Google Sheets
 
 ## How open
-1. Extract all the file `project_matcha`.
+1. Extract all the file `systemOS`.
 2. Open the `index.html` on browser (Chrome, Firefox ou Edge).
 3. Maintain structure the files: the HTML loads `css/styles.css` e `js/app.js`.
 
