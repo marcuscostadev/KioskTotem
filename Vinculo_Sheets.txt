@@ -1,0 +1,147 @@
+﻿GOOGLE SHEETS PART
+
+
+1. Create a Google Sheets in blanc.
+2. Rewrite the page for: Pedidos
+3. Open Extentions > Apps Script
+4. erase the code who was generated and put the code below
+5. Click in Implant > New implant
+6. Select: App in Web
+7. Execute as: You
+8. Who can acess: Anyone
+9. Authorize and copy the URL ended in /exec 
+10. past the URL in the JSON.JS, in the CONST with the info "COLE_/exec_AQUI"
+-------------------------------------------------------------------------------------------
+
+
+const NOME_DA_ABA = "Pedidos";
+
+
+function doGet() {
+  return ContentService
+    .createTextOutput("Sistema Matchá ativo.")
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+
+function doPost(e) {
+  try {
+    const pedido = JSON.parse(e.parameter.pedido || "{}");
+    const planilha = SpreadsheetApp.getActiveSpreadsheet();
+    let aba = planilha.getSheetByName(NOME_DA_ABA);
+
+
+    if (!aba) {
+      aba = planilha.insertSheet(NOME_DA_ABA);
+    }
+
+
+    prepararCabecalho(aba);
+
+
+    const itensTexto = (pedido.itens || [])
+      .map(item => {
+        const detalhes = [
+          item.tamanho,
+          item.temperatura
+        ].filter(Boolean).join(" / ");
+
+
+        return `${item.quantidade}x ${item.nome}` +
+          (detalhes ? ` (${detalhes})` : "");
+      })
+      .join("\n");
+
+
+    aba.appendRow([
+      pedido.numero || "",
+      new Date(),
+      itensTexto,
+      formatarPagamento(pedido.pagamento),
+      Number(pedido.subtotal || 0),
+      Number(pedido.total || 0),
+      pedido.status || "Novo"
+    ]);
+
+
+    const ultimaLinha = aba.getLastRow();
+    aba.getRange(ultimaLinha, 2).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+    aba.getRange(ultimaLinha, 5, 1, 2).setNumberFormat('R$ #,##0.00');
+    aba.getRange(ultimaLinha, 3).setWrap(true);
+
+
+    if (EMAIL_NOTIFICACAO) {
+      MailApp.sendEmail({
+        to: EMAIL_NOTIFICACAO,
+        subject: `Novo pedido Matchá #${pedido.numero}`,
+        body:
+          `Novo pedido recebido!\n\n` +
+          `Pedido: #${pedido.numero}\n` +
+          `Itens:\n${itensTexto}\n\n` +
+          `Pagamento: ${formatarPagamento(pedido.pagamento)}\n` +
+          `Total: R$ ${Number(pedido.total || 0).toFixed(2).replace(".", ",")}`
+      });
+    }
+
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        sucesso: true,
+        numero: pedido.numero
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+
+  } catch (erro) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        sucesso: false,
+        erro: String(erro)
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+function prepararCabecalho(aba) {
+  if (aba.getLastRow() > 0) return;
+
+
+  aba.appendRow([
+    "Pedido",
+    "Data e hora",
+    "Itens",
+    "Pagamento",
+    "Subtotal",
+    "Total",
+    "Status"
+  ]);
+
+
+  const cabecalho = aba.getRange(1, 1, 1, 7);
+  cabecalho.setFontWeight("bold");
+  cabecalho.setBackground("#7CBB40");
+  cabecalho.setFontColor("#FFFFFF");
+
+
+  aba.setFrozenRows(1);
+  aba.setColumnWidth(1, 90);
+  aba.setColumnWidth(2, 160);
+  aba.setColumnWidth(3, 360);
+  aba.setColumnWidth(4, 150);
+  aba.setColumnWidth(5, 120);
+  aba.setColumnWidth(6, 120);
+  aba.setColumnWidth(7, 110);
+}
+
+
+function formatarPagamento(valor) {
+  const pagamentos = {
+    dinheiro: "Dinheiro",
+    cartao: "Débito ou crédito",
+    pix: "PIX"
+  };
+
+
+  return pagamentos[valor] || valor || "Não informado";
+}
